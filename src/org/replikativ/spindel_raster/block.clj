@@ -20,10 +20,7 @@
   per block. Raster owns compilation and caching; this namespace only binds
   arguments."
   (:require [org.replikativ.spindel.inference.block :as block]
-            [raster.ad.reverse :as rev]
-            ;; reverse-mode code refers to this namespace's templates without
-            ;; loading it (raster, reported)
-            [raster.dl.nn]))
+            [raster.ad.reverse :as rev]))
 
 (defn- theta-gradient
   "θ's gradient from raster's per-argument gradients: the declared slots in

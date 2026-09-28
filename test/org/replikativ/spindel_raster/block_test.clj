@@ -15,20 +15,24 @@
             [raster.core :refer [deftm]]
             [raster.numeric :as n]
             [raster.arrays :as ra]
+            [raster.sci.distributions :as dist]
             [anglican.runtime :as ar]))
 
-;; μ ∈ R², μ_j ~ N(0, s0²), y_ij ~ N(μ_j, s²), up to constants. The density is
-;; written out: raster does not yet differentiate a distribution constructor
-;; inside a loop.
-(deftm gauss-lp [m0 :- Double, m1 :- Double, ys :- (Array double), cnt :- Long,
-                 s0 :- Double, s :- Double] :- Double
-  (loop [i 0
-         acc (n/- 0.0 (n// (n/+ (n/* m0 m0) (n/* m1 m1)) (n/* 2.0 (n/* s0 s0))))]
-    (if (< i cnt)
-      (let [r0 (n/- (ra/aget ys (* 2 i)) m0)
-            r1 (n/- (ra/aget ys (inc (* 2 i))) m1)]
-        (recur (inc i) (n/- acc (n// (n/+ (n/* r0 r0) (n/* r1 r1)) (n/* 2.0 (n/* s s))))))
-      acc)))
+;; μ ∈ R², μ_j ~ N(0, s0²), y_ij ~ N(μ_j, s²); one observation array per
+;; dimension. Two raster limits shape it (reported): data arrays are
+;; differentiated too, so they are read at the loop index itself, and a
+;; constructed density must not seed the loop accumulator, so the prior is
+;; added outside the loop.
+(deftm gauss-lp [m0 :- Double, m1 :- Double, y0 :- (Array double), y1 :- (Array double),
+                 cnt :- Long, s0 :- Double, s :- Double] :- Double
+  (n/+ (n/+ (dist/logpdf (dist/->Normal 0.0 s0) m0)
+            (dist/logpdf (dist/->Normal 0.0 s0) m1))
+       (loop [i 0 acc 0.0]
+         (if (< i cnt)
+           (recur (inc i)
+                  (n/+ acc (n/+ (dist/logpdf (dist/->Normal m0 s) (ra/aget y0 i))
+                                (dist/logpdf (dist/->Normal m1 s) (ra/aget y1 i)))))
+           acc))))
 
 (def ^:private description
   {:block/id :gauss
@@ -37,8 +41,8 @@
 
 (def ^:private raster-gauss
   (rb/raster-block description #'gauss-lp
-                   {:args (fn [^doubles th {:keys [ys cnt s0 s]}]
-                            [(aget th 0) (aget th 1) ys (long cnt) (double s0) (double s)])
+                   {:args (fn [^doubles th {:keys [y0 y1 cnt s0 s]}]
+                            [(aget th 0) (aget th 1) y0 y1 (long cnt) (double s0) (double s)])
                     :theta [0 1]}))
 
 (def ^:private reference-gauss
@@ -62,6 +66,12 @@
                                (range n)))
      :cnt n :s0 3.0 :s 1.0}))
 
+(def ^:private inputs
+  (let [ys (vec (:ys inputs))]
+    (assoc inputs
+           :y0 (double-array (take-nth 2 ys))
+           :y1 (double-array (take-nth 2 (rest ys))))))
+
 (defn- close? [a b] (< (Math/abs (- a b)) (* 1e-9 (max 1.0 (Math/abs a)))))
 
 (deftest raster-block-matches-the-reference
@@ -70,8 +80,11 @@
       (let [th (double-array [(* 3 (.nextGaussian rng)) (* 3 (.nextGaussian rng))])
             [v g] ((block/capability raster-gauss :value+grad) th inputs)
             [v' g'] ((block/capability reference-gauss :value+grad) th inputs)]
-        (is (close? v' v))
-        (is (close? v' ((block/capability raster-gauss :log-density) th inputs)))
+        ;; the raster density is normalized, the reference is not: the two
+        ;; differ by a constant
+        (is (close? (- v v') (- ((block/capability raster-gauss :log-density) (double-array [0.0 0.0]) inputs)
+                                ((block/capability reference-gauss :log-density) (double-array [0.0 0.0]) inputs))))
+        (is (close? v ((block/capability raster-gauss :log-density) th inputs)))
         (is (every? true? (map close? (vec g') (vec g))))))))
 
 (deftest raster-gradient-matches-finite-differences
