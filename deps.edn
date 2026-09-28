@@ -1,11 +1,17 @@
 {:paths ["src"]
  :deps {org.clojure/clojure {:mvn/version "1.12.1"}
-        org.replikativ/spindel {:local/root "../spindel-main-check"}}
+        io.github.replikativ/spindel {:git/url "https://github.com/replikativ/spindel.git"
+                                      :git/sha "9335eb0f327d2d55aeabd6c3b8f011ef506ff8cd"}
+        io.github.replikativ/raster {:git/url "git@github.com:replikativ/raster.git"
+                                     :git/sha "3f96bff56e0683f8a2cb6cafb51f211cfeae337d"}}
  :aliases
- {;; Raster-backed blocks. Until raster publishes its artifact API, a local checkout.
-  :raster {:extra-deps {raster/raster {:local/root "../raster"}}}
+ {;; raster's compiler JVM options
+  :jvm {:jvm-opts ["--enable-native-access=ALL-UNNAMED" "--add-modules=jdk.incubator.vector"
+                   "-Xss8m" "-XX:ReservedCodeCacheSize=512m" "-Xmx2g"]}
   :test {:extra-paths ["test"]
          :extra-deps {io.github.cognitect-labs/test-runner
                       {:git/tag "v0.5.1" :git/sha "dfb30dd"}}
          :main-opts ["-m" "cognitect.test-runner"]
-         :exec-fn cognitect.test-runner.api/test}}}
+         :exec-fn cognitect.test-runner.api/test}
+  :repl {:extra-paths ["test"]
+         :extra-deps {nrepl/nrepl {:mvn/version "1.1.2"}}}}}
