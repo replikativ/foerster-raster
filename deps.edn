@@ -2,7 +2,7 @@
  :deps {org.clojure/clojure {:mvn/version "1.12.1"}
         io.github.replikativ/spindel {:git/url "https://github.com/replikativ/spindel.git"
                                       :git/sha "9335eb0f327d2d55aeabd6c3b8f011ef506ff8cd"}
-        io.github.replikativ/raster {:git/url "git@github.com:replikativ/raster.git"
+        io.github.replikativ/raster {:git/url "https://github.com/replikativ/raster.git"
                                      :git/sha "3f96bff56e0683f8a2cb6cafb51f211cfeae337d"}}
  :aliases
  {;; raster's compiler JVM options
