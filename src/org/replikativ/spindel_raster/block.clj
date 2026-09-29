@@ -20,7 +20,7 @@
   to the θ slots only, built once per block: the other arguments (the data)
   stay constant. Raster owns compilation and caching; this namespace only
   binds arguments."
-  (:require [org.replikativ.spindel.inference.block :as block]
+  (:require [org.replikativ.foerster.block :as block]
             [raster.ad.reverse :as rev]))
 
 (defn- theta-gradient
