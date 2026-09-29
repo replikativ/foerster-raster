@@ -1,11 +1,13 @@
-# The spindel ↔ raster block contract
+# The foerster ↔ raster block contract
 
-Status: draft 0, agreed in outline between the spindel and raster sides
-(2026-09-28). Changes go through this file.
+Status: draft 0, agreed in outline between the inference and raster sides
+(2026-09-28; the inference side was spindel's, and is now
+[foerster](https://github.com/replikativ/foerster), on spindel's worlds).
+Changes go through this file.
 
 ## Division of labour
 
-**Spindel** owns everything about *which* variables exist and how they are
+**foerster** owns everything about *which* variables exist and how they are
 explored: addresses and traces, the random streams, proposals, acceptance,
 particles and forked worlds, and the statistical meaning of every estimate.
 
@@ -20,7 +22,7 @@ functions.
 ## A block
 
 A *block* is a fixed-shape numerical fragment of a model: a group of latent
-variables together with the density factors they touch. Spindel treats a
+variables together with the density factors they touch. foerster treats a
 block as one choice site whose value is the block's latents.
 
 A block is a *description* plus *capabilities*. The description is data:
@@ -50,7 +52,7 @@ Optional, each with an explicit domain and convention in the description:
 `:unconstrain`, `:inverse`, `:log-abs-det-jacobian`, `:eval` (forward
 simulation), `:batch` (a leading particle dimension).
 
-A capability a block does not declare is absent: spindel never falls back to
+A capability a block does not declare is absent: foerster never falls back to
 finite differences behind a caller's back. An undeclared derivative rejects
 the program.
 
@@ -61,11 +63,11 @@ block's latents affect**: their priors *and* all downstream observations and
 latents that depend on them, with every variable outside the block held
 fixed as an input. A site's own prior alone is not enough for HMC.
 
-Spindel keeps HMC exact even when a block's target is incomplete. The
+foerster keeps HMC exact even when a block's target is incomplete. The
 leapfrog map is volume preserving and reversible for any position-only force
-field, and spindel computes the acceptance ratio on the **full trace log
+field, and foerster computes the acceptance ratio on the **full trace log
 joint**, by replay. An incomplete target therefore costs efficiency, never
-correctness. Spindel reports it: when a replay changes the log probability of
+correctness. foerster reports it: when a replay changes the log probability of
 a site outside the block, the step records a diagnostic.
 
 ### Parameter layout
@@ -73,7 +75,7 @@ a site outside the block, the step records a diagnostic.
 `θ` is a flat `double[]` in the declared order, in unconstrained
 coordinates. Every constrained latent names its transform. The block's log
 density includes the log-absolute-Jacobian of each transform. The trace
-records both θ and the constrained values: spindel sites downstream see the
+records both θ and the constrained values: sites downstream see the
 constrained values.
 
 ## Randomness
@@ -99,8 +101,8 @@ and backend.
 
 Draft 0 is synchronous: capabilities are pure functions and retain nothing
 between calls. When residuals arrive (a tape for `vjp`, a device buffer), they
-are owned by the call that made them and released when spindel releases the
-world that holds them. That world is a savepoint anchor, a trace or a
+are owned by the call that made them and released when the world that holds
+them (a spindel world) is released. That world is a savepoint anchor, a trace or a
 particle. Asynchronous completion goes through one shared completion service
 that resumes the waiting spin on its executor.
 
@@ -123,11 +125,12 @@ Statistical, as a separate seeded experiment with explicit thresholds:
 
 ## Milestones
 
-1. Pure-Clojure reference block + HMC-within-Gibbs in spindel; the Gaussian
-   and logistic-regression oracles.
-2. Raster block from `deftm` log densities, once raster's log-density and
-   helper-call AD fixes land.
-3. Batched particles (`:batch`) through raster dimensions; spindel forks only
+1. Pure-Clojure reference block + HMC-within-Gibbs (`foerster.block`,
+   `foerster.hmc`); the Gaussian oracle. **Done.** The logistic-regression
+   oracle is next.
+2. Raster block from `deftm` log densities (`foerster-raster.block`), with
+   gradients with respect to θ only. **Done.**
+3. Batched particles (`:batch`) through raster dimensions; worlds fork only
    where structure diverges.
 4. Residuals, asynchronous completion, device execution.
 5. Implicit solves; estimator-based inference (ADEV, differentiable SMC)

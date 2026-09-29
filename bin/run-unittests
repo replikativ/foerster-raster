@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o pipefail
+
+echo "Running JVM tests"
+
+# raster's compiler needs its JVM options (:jvm)
+clojure -M:jvm:test

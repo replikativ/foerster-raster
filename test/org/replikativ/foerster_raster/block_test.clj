@@ -1,13 +1,13 @@
-(ns org.replikativ.spindel-raster.block-test
+(ns org.replikativ.foerster-raster.block-test
   "A raster-compiled Gaussian block against a pure-Clojure reference block,
-  finite differences, and the analytic posterior under spindel's HMC."
+  finite differences, and the analytic posterior under foerster's HMC."
   (:require [clojure.test :refer [deftest is]]
-            [org.replikativ.spindel-raster.block :as rb]
-            [org.replikativ.spindel.inference.block :as block]
-            [org.replikativ.spindel.inference.inference :as infer]
-            [org.replikativ.spindel.inference.kernel :as k]
-            [org.replikativ.spindel.inference.measure :as m]
-            [org.replikativ.spindel.inference.effects :refer [sample]]
+            [org.replikativ.foerster-raster.block :as rb]
+            [org.replikativ.foerster.block :as block]
+            [org.replikativ.foerster.core :as infer]
+            [org.replikativ.foerster.kernel :as k]
+            [org.replikativ.foerster.measure :as m]
+            [org.replikativ.foerster.effects :refer [sample]]
             [org.replikativ.spindel.engine.context :as ctx]
             [org.replikativ.spindel.engine.core :as ec]
             [org.replikativ.spindel.effects.await :as aw]
@@ -16,7 +16,7 @@
             [raster.numeric :as n]
             [raster.arrays :as ra]
             [raster.sci.distributions :as dist]
-            [anglican.runtime :as ar]))
+            [org.replikativ.foerster.random :as random]))
 
 ;; μ ∈ R², μ_j ~ N(0, s0²), y_ij ~ N(μ_j, s²); the observations interleaved
 ;; in one array, the prior seeding the loop's accumulator.
@@ -90,7 +90,7 @@
             (is (< (Math/abs (- fd (aget ^doubles g j))) 1e-4))))))))
 
 (defn- run-chain [b seed]
-  (.setSeed ^org.apache.commons.math3.random.RandomGenerator ar/RNG (long seed))
+  (random/set-seed! seed)
   (let [root (ctx/create-execution-context)]
     (try
       (binding [ec/*execution-context* root]
