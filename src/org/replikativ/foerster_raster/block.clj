@@ -1,5 +1,5 @@
-(ns org.replikativ.spindel-raster.block
-  "Raster-compiled log densities as spindel blocks (doc/contract.md).
+(ns org.replikativ.foerster-raster.block
+  "Raster-compiled log densities as foerster blocks (doc/contract.md).
 
   A raster block is a `deftm` log density over typed arguments. The block
   says how θ and the site's inputs become those arguments, and which argument
@@ -38,7 +38,7 @@
            slots)))
 
 (defn raster-block
-  "A spindel block whose log density is the raster function `lp-var`. See
+  "A foerster block whose log density is the raster function `lp-var`. See
   the namespace for `binding`: {:args (fn [theta inputs]) :theta [slot …]}."
   [description lp-var {:keys [args theta]}]
   (let [value+grad (delay (rev/value+grad lp-var :wrt theta))]

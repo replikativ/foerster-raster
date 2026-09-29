@@ -1,8 +1,8 @@
-(ns org.replikativ.spindel-raster.block-test
+(ns org.replikativ.foerster-raster.block-test
   "A raster-compiled Gaussian block against a pure-Clojure reference block,
-  finite differences, and the analytic posterior under spindel's HMC."
+  finite differences, and the analytic posterior under foerster's HMC."
   (:require [clojure.test :refer [deftest is]]
-            [org.replikativ.spindel-raster.block :as rb]
+            [org.replikativ.foerster-raster.block :as rb]
             [org.replikativ.foerster.block :as block]
             [org.replikativ.foerster.core :as infer]
             [org.replikativ.foerster.kernel :as k]
