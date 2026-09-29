@@ -18,21 +18,17 @@
             [raster.sci.distributions :as dist]
             [anglican.runtime :as ar]))
 
-;; μ ∈ R², μ_j ~ N(0, s0²), y_ij ~ N(μ_j, s²); one observation array per
-;; dimension. Two raster limits shape it (reported): data arrays are
-;; differentiated too, so they are read at the loop index itself, and a
-;; constructed density must not seed the loop accumulator, so the prior is
-;; added outside the loop.
-(deftm gauss-lp [m0 :- Double, m1 :- Double, y0 :- (Array double), y1 :- (Array double),
+;; μ ∈ R², μ_j ~ N(0, s0²), y_ij ~ N(μ_j, s²); the observations interleaved
+;; in one array, the prior seeding the loop's accumulator.
+(deftm gauss-lp [m0 :- Double, m1 :- Double, ys :- (Array double),
                  cnt :- Long, s0 :- Double, s :- Double] :- Double
-  (n/+ (n/+ (dist/logpdf (dist/->Normal 0.0 s0) m0)
-            (dist/logpdf (dist/->Normal 0.0 s0) m1))
-       (loop [i 0 acc 0.0]
-         (if (< i cnt)
-           (recur (inc i)
-                  (n/+ acc (n/+ (dist/logpdf (dist/->Normal m0 s) (ra/aget y0 i))
-                                (dist/logpdf (dist/->Normal m1 s) (ra/aget y1 i)))))
-           acc))))
+  (loop [i 0 acc (n/+ (dist/logpdf (dist/->Normal 0.0 s0) m0)
+                      (dist/logpdf (dist/->Normal 0.0 s0) m1))]
+    (if (< i cnt)
+      (recur (inc i)
+             (n/+ acc (n/+ (dist/logpdf (dist/->Normal m0 s) (ra/aget ys (* 2 i)))
+                           (dist/logpdf (dist/->Normal m1 s) (ra/aget ys (inc (* 2 i)))))))
+      acc)))
 
 (def ^:private description
   {:block/id :gauss
@@ -41,8 +37,8 @@
 
 (def ^:private raster-gauss
   (rb/raster-block description #'gauss-lp
-                   {:args (fn [^doubles th {:keys [y0 y1 cnt s0 s]}]
-                            [(aget th 0) (aget th 1) y0 y1 (long cnt) (double s0) (double s)])
+                   {:args (fn [^doubles th {:keys [ys cnt s0 s]}]
+                            [(aget th 0) (aget th 1) ys (long cnt) (double s0) (double s)])
                     :theta [0 1]}))
 
 (def ^:private reference-gauss
@@ -65,12 +61,6 @@
     {:ys (double-array (mapcat (fn [_] [(+ 1.0 (.nextGaussian rng)) (+ -2.0 (.nextGaussian rng))])
                                (range n)))
      :cnt n :s0 3.0 :s 1.0}))
-
-(def ^:private inputs
-  (let [ys (vec (:ys inputs))]
-    (assoc inputs
-           :y0 (double-array (take-nth 2 ys))
-           :y1 (double-array (take-nth 2 (rest ys))))))
 
 (defn- close? [a b] (< (Math/abs (- a b)) (* 1e-9 (max 1.0 (Math/abs a)))))
 

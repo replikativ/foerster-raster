@@ -16,9 +16,10 @@
   `:theta` lists, in θ order, the argument slots θ occupies: a scalar slot
   contributes one coordinate, an array slot as many as its gradient has.
   The block's `:log-density` calls the compiled function; its `:value+grad`
-  calls raster's reverse mode (`raster.ad.reverse/value+grad`), built once
-  per block. Raster owns compilation and caching; this namespace only binds
-  arguments."
+  calls raster's reverse mode (`raster.ad.reverse/value+grad`) with respect
+  to the θ slots only, built once per block: the other arguments (the data)
+  stay constant. Raster owns compilation and caching; this namespace only
+  binds arguments."
   (:require [org.replikativ.spindel.inference.block :as block]
             [raster.ad.reverse :as rev]))
 
@@ -40,7 +41,7 @@
   "A spindel block whose log density is the raster function `lp-var`. See
   the namespace for `binding`: {:args (fn [theta inputs]) :theta [slot …]}."
   [description lp-var {:keys [args theta]}]
-  (let [value+grad (delay (rev/value+grad lp-var))]
+  (let [value+grad (delay (rev/value+grad lp-var :wrt theta))]
     (block/block
      description
      {:log-density (fn [th inputs] (double (apply @lp-var (args th inputs))))
