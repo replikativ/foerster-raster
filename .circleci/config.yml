@@ -1,0 +1,19 @@
+version: 2.1
+
+orbs:
+  tools: replikativ/clj-tools@0
+
+# JVM only: raster's compiler runs on the JVM. Not published, so no deploy.
+workflows:
+  test:
+    jobs:
+      - tools/setup:
+          context: docker-deploy
+      - tools/format:
+          context: docker-deploy
+          requires:
+            - tools/setup
+      - tools/unittest:
+          context: docker-deploy
+          requires:
+            - tools/setup
