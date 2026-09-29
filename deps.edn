@@ -3,7 +3,7 @@
         io.github.replikativ/spindel {:git/url "https://github.com/replikativ/spindel.git"
                                       :git/sha "9335eb0f327d2d55aeabd6c3b8f011ef506ff8cd"}
         io.github.replikativ/raster {:git/url "https://github.com/replikativ/raster.git"
-                                     :git/sha "5389e49ad1762bd5ec0a62899d84f837c9b9e272"}}
+                                     :git/sha "733173c793f6a50e954dcd3ff9060ba1bd3cca0c"}}
  :aliases
  {;; raster's compiler JVM options
   :jvm {:jvm-opts ["--enable-native-access=ALL-UNNAMED" "--add-modules=jdk.incubator.vector"
