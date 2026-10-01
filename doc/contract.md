@@ -50,7 +50,15 @@ Capabilities are functions over primitive arrays. Required:
 Optional, each with an explicit domain and convention in the description:
 `:jvp`, `:vjp`, `:hvp`, `:constrain` (θ → latent values, for the trace),
 `:unconstrain`, `:inverse`, `:log-abs-det-jacobian`, `:eval` (forward
-simulation), `:batch` (a leading particle dimension).
+simulation), `:batch` (a leading particle dimension), and for drawing a
+block:
+
+| capability | signature | meaning |
+|---|---|---|
+| `:sample` | `(f inputs) → ^doubles θ` | a draw of θ, not necessarily from the target (whose normalizer is unknown) |
+| `:sample-log-density` | `(f ^doubles θ inputs) → double` | the log density of what `:sample` draws; required whenever a block is drawn from — importance sampling, SMC, single-site MH proposals — since the draw is weighed by log target(θ) − log sample-density(θ) |
+
+A block without `:sample` cannot be drawn from and starts at an `:init`.
 
 A capability a block does not declare is absent: foerster never falls back to
 finite differences behind a caller's back. An undeclared derivative rejects
@@ -127,7 +135,7 @@ Statistical, as a separate seeded experiment with explicit thresholds:
 
 1. Pure-Clojure reference block + HMC-within-Gibbs (`foerster.block`,
    `foerster.hmc`); the Gaussian oracle. **Done.** The logistic-regression
-   oracle is next.
+   oracle (non-conjugate, against grid quadrature): **done**.
 2. Raster block from `deftm` log densities (`foerster-raster.block`), with
    gradients with respect to θ only. **Done.**
 3. Batched particles (`:batch`) through raster dimensions; worlds fork only
