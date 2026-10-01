@@ -136,14 +136,13 @@ JDK 21 or later (`--add-modules=jdk.incubator.vector`,
 
 ## Roadmap
 
-1. A logistic-regression block (non-conjugate, a weight vector over a
-   feature matrix) against a long reference run and simulation-based
-   calibration.
+1. Simulation-based calibration of the blocks (the logistic-regression
+   block is checked against grid quadrature; `test/…/logistic_test.clj`).
 2. Batching: many rows reduced in parallel, and particles as a leading
    dimension (`:batch`), on CPU and GPU.
-3. A conformance test that `foerster.dist` and raster's distributions compute
-   the same densities, and then lowering a model's `foerster.dist` sites into
-   a compiled block without rewriting the model.
+3. Lowering a model's `foerster.dist` sites into a compiled block without
+   rewriting the model (`foerster.dist` and raster's distributions compute
+   the same densities: `test/…/dist_conformance_test.clj`).
 4. Residuals, asynchronous completion and device execution; estimator-based
    inference (ADEV, differentiable SMC).
 
