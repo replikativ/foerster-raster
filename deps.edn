@@ -1,6 +1,6 @@
 {:paths ["src"]
  :deps {org.clojure/clojure {:mvn/version "1.12.1"}
-        org.replikativ/foerster {:mvn/version "0.1.48"}
+        org.replikativ/foerster {:mvn/version "0.1.51"}
         org.replikativ/raster {:mvn/version "0.2.1141"}}
  :aliases
  {;; raster's compiler JVM options
@@ -18,6 +18,11 @@
                  babashka/fs {:mvn/version "0.3.17"}
                  cheshire/cheshire {:mvn/version "5.11.0"}}
           :ns-default build}
+;; experiments with decoder LMs (pretrained-rstr, built against raster
+  ;; 0.2.545); not a library dependency, and they load no foerster-raster block
+  :lm {:extra-paths ["experiments"]
+       :extra-deps {org.replikativ/pretrained-rstr {:mvn/version "0.1.55"}}
+       :override-deps {org.replikativ/raster {:mvn/version "0.2.545"}}}
   :repl {:extra-paths ["test"]
          :extra-deps {nrepl/nrepl {:mvn/version "1.1.2"}}}
   ;; Code formatting check (CI) and fix
