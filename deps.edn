@@ -1,8 +1,7 @@
 {:paths ["src"]
  :deps {org.clojure/clojure {:mvn/version "1.12.1"}
-        org.replikativ/foerster {:mvn/version "0.1.35"}
-        io.github.replikativ/raster {:git/url "https://github.com/replikativ/raster.git"
-                                     :git/sha "733173c793f6a50e954dcd3ff9060ba1bd3cca0c"}}
+        org.replikativ/foerster {:mvn/version "0.1.48"}
+        org.replikativ/raster {:mvn/version "0.2.1141"}}
  :aliases
  {;; raster's compiler JVM options
   :jvm {:jvm-opts ["--enable-native-access=ALL-UNNAMED" "--add-modules=jdk.incubator.vector"
@@ -12,6 +11,13 @@
                       {:git/tag "v0.5.1" :git/sha "dfb30dd"}}
          :main-opts ["-m" "cognitect.test-runner"]
          :exec-fn cognitect.test-runner.api/test}
+  :build {:deps {io.github.clojure/tools.build {:mvn/version "0.10.5"}
+                 slipset/deps-deploy {:mvn/version "0.2.2"}
+                 io.github.borkdude/gh-release-artifact {:git/sha "b946558225a7839f6a0f644834e838e190dc2262"}
+                 babashka/babashka.curl {:mvn/version "0.1.2"}
+                 babashka/fs {:mvn/version "0.3.17"}
+                 cheshire/cheshire {:mvn/version "5.11.0"}}
+          :ns-default build}
   :repl {:extra-paths ["test"]
          :extra-deps {nrepl/nrepl {:mvn/version "1.1.2"}}}
   ;; Code formatting check (CI) and fix

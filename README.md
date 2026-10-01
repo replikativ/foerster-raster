@@ -1,6 +1,7 @@
 # foerster-raster
 
 [![CircleCI](https://circleci.com/gh/replikativ/foerster-raster.svg?style=shield)](https://circleci.com/gh/replikativ/foerster-raster)
+[![Clojars Project](https://img.shields.io/clojars/v/org.replikativ/foerster-raster.svg)](https://clojars.org/org.replikativ/foerster-raster)
 
 Compiled numerical blocks for [foerster](https://github.com/replikativ/foerster)
 inference: log densities and their gradients from
@@ -104,7 +105,7 @@ differences, and the analytic posterior under HMC.
 ### Shapes raster differentiates
 
 What the block tests and raster's AD regression tests cover, as of raster
-`733173c7`:
+0.2.1141:
 
 - loops (`loop`/`recur`) and `par/reduce` over observations, with
   constructed densities (`(dist/logpdf (dist/->Normal mu s) y)`) in the body;
@@ -118,6 +119,10 @@ compare every block's gradient with finite differences. Report such a shape
 to raster with a minimal `deftm`.
 
 ## Running
+
+```clojure
+org.replikativ/foerster-raster {:mvn/version "LATEST"}  ; see the Clojars badge
+```
 
 raster's compiler needs JVM options, collected in the `:jvm` alias:
 
