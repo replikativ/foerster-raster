@@ -48,3 +48,49 @@
       :value+grad (fn [th inputs]
                     (let [[v & grads] (apply @value+grad (args th inputs))]
                       [(double v) (theta-gradient (vec grads) theta)]))})))
+
+(defmacro defdensity
+  "Define a raster block from its log density, written as the body of a
+  `deftm`: `latents` are the block's scalar latents in θ order (each a
+  symbol, or [symbol support] with support `:positive` or [:interval a b]),
+  `data` the other arguments with their raster types. Defines `name` as the
+  block and `name-lp` as the compiled density; the gradient with respect to
+  the latents comes from raster's reverse mode. The site's inputs are a map
+  keyed by the data arguments' names:
+
+    (defdensity logreg [b0 b1 b2]
+      [xs :- (Array double), ys :- (Array double), cnt :- Long]
+      (loop … acc))
+
+    (sample (block/block-dist logreg {:xs xs :ys ys :cnt n}) :id :beta :init [0.0 0.0 0.0])
+
+  With a constrained latent the body sees it in natural coordinates (σ, not
+  log σ): the block declares `:block/coordinates :constrained` and foerster
+  transforms."
+  [name latents data & body]
+  (let [specs (mapv #(if (vector? %) % [% :real]) latents)
+        syms (mapv first specs)
+        lp (symbol (str name "-lp"))
+        data-args (vec (partition 3 data))
+        th (gensym "theta")
+        inputs (gensym "inputs")
+        coerce (fn [[sym _ type]]
+                 (let [k (keyword sym)]
+                   (case type
+                     Double `(double (get ~inputs ~k))
+                     Long `(long (get ~inputs ~k))
+                     `(get ~inputs ~k))))
+        constrained? (some #(not= :real (second %)) specs)]
+    `(do
+       (raster.core/deftm ~lp ~(vec (concat (mapcat (fn [s] [s :- 'Double]) syms) data)) :- ~'Double
+         ~@body)
+       (def ~name
+         (raster-block (cond-> {:block/id ~(keyword name)
+                                :block/latents ~(mapv (fn [[s su]] {:name (keyword s) :shape [] :support su}) specs)
+                                :block/target :complete-conditional}
+                         ~(boolean constrained?) (assoc :block/coordinates :constrained))
+                       (var ~lp)
+                       {:args (fn [~(with-meta th {:tag 'doubles}) ~inputs]
+                                (into ~(mapv (fn [i] `(aget ~th ~i)) (range (count syms)))
+                                      [~@(map coerce data-args)]))
+                        :theta ~(vec (range (count syms)))})))))
