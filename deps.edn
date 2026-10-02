@@ -1,6 +1,6 @@
 {:paths ["src"]
  :deps {org.clojure/clojure {:mvn/version "1.12.1"}
-        org.replikativ/foerster {:mvn/version "0.1.51"}
+        org.replikativ/foerster {:mvn/version "0.1.62"}
         org.replikativ/raster {:mvn/version "0.2.1141"}}
  :aliases
  {;; raster's compiler JVM options

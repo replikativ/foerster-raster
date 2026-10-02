@@ -51,6 +51,28 @@ it is not (it accepts on the full trace's log joint), so a missing factor
 costs mixing, not correctness. The full contract is
 [doc/contract.md](doc/contract.md).
 
+## A block from its density
+
+`defdensity` writes a block as the body of its log density: the latents
+(scalars, in θ order, optionally with a support), the data arguments with
+their raster types, and a `deftm` body. It defines the compiled density and
+the block, with the gradient from raster's reverse mode; a constrained
+latent is seen in its natural coordinates and foerster samples its
+transform:
+
+```clojure
+(defdensity mean-scale [mu [sigma :positive]]
+  [ys :- (Array double), cnt :- Long]
+  (loop [i 0 acc (n/+ (dist/logpdf (dist/->Normal 0.0 10.0) mu)
+                      (dist/logpdf (dist/->Normal 0.0 2.0) sigma))]
+    (if (< i cnt)
+      (recur (inc i) (n/+ acc (dist/logpdf (dist/->Normal mu sigma) (ra/aget ys i))))
+      acc)))
+
+(infer/infer (spin (sample (block/block-dist mean-scale {:ys ys :cnt n}) :id :th :init [0.0 0.0]))
+             {:method :nuts :iterations 1000 :chains 4 :burn 500})
+```
+
 ## A raster block
 
 A raster log density is a `deftm` over typed arguments; `raster-block` says
