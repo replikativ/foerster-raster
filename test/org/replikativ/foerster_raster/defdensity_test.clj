@@ -68,3 +68,50 @@
     (is (< (Math/abs (- (aget ^doubles g 0) (/ (- (f (+ 2.4 h) (Math/log 0.9)) (f (- 2.4 h) (Math/log 0.9))) (* 2 h)))) 1e-4))
     (is (< (Math/abs (- (aget ^doubles g 1) (/ (- (f 2.4 (+ (Math/log 0.9) h)) (f 2.4 (- (Math/log 0.9) h))) (* 2 h)))) 1e-4))
     (is (= [2.4 0.9] (mapv #(/ (Math/round (* 1e9 %)) 1e9) (block/constrain mean-scale th))))))
+
+;; the same regression with its slopes as one vector latent
+(defdensity logreg-vec [b0 [b [2]]]
+  [xs :- (Array double), ys :- (Array double), cnt :- Long, s0 :- Double]
+  ;; elements read at a fixed index are bound before the loop (see defdensity)
+  (let [b1 (ra/aget b 0) b2 (ra/aget b 1)]
+    (loop [i 0 acc (n/+ (dist/logpdf (dist/->Normal 0.0 s0) b0)
+                        (n/+ (dist/logpdf (dist/->Normal 0.0 s0) b1)
+                             (dist/logpdf (dist/->Normal 0.0 s0) b2)))]
+      (if (< i cnt)
+        (let [eta (n/+ b0 (n/+ (n/* b1 (ra/aget xs (* 2 i))) (n/* b2 (ra/aget xs (inc (* 2 i))))))]
+          (recur (inc i) (n/+ acc (n/- (n/* (ra/aget ys i) eta) (rm/log (n/+ 1.0 (rm/exp eta)))))))
+        acc))))
+
+(deftest a-vector-latent-is-a-slice-of-theta
+  (is (= 3 (block/dimension logreg-vec)))
+  (is (= [{:name :b0 :shape [] :support :real} {:name :b :shape [2] :support :real}]
+         (:block/latents (:description logreg-vec))))
+  (doseq [x [[0.0 0.0 0.0] [0.4 -1.1 0.7]]]
+    (let [th (double-array x)
+          [v g] ((block/capability logreg-vec :value+grad) th inputs)
+          [v' g'] ((block/capability logreg :value+grad) th inputs)]
+      (is (< (Math/abs (- v v')) 1e-12))
+      (is (every? #(< (Math/abs %) 1e-9) (map - (seq ^doubles g) (seq ^doubles g')))))))
+
+;; k positive scales, each with a half-normal prior and one observation
+(defdensity scales [[s [3] :positive]]
+  [ys :- (Array double)]
+  (loop [i 0 acc 0.0]
+    (if (< i 3)
+      (recur (inc i) (n/+ acc (n/+ (dist/logpdf (dist/->Normal 0.0 2.0) (ra/aget s i))
+                                   (dist/logpdf (dist/->Normal 0.0 (ra/aget s i)) (ra/aget ys i)))))
+      acc)))
+
+(deftest a-constrained-vector-latent
+  (let [ys (double-array [0.5 -1.2 2.0])
+        th [0.1 -0.3 0.4]
+        ;; θ = log s: the body at s = e^θ plus Σ θ
+        lp (fn [th] (+ (reduce + (map (fn [t y] (let [s (Math/exp t)]
+                                                  (+ (dist/logpdf (dist/->Normal 0.0 2.0) s)
+                                                     (dist/logpdf (dist/->Normal 0.0 s) y) t)))
+                                      th ys))))
+        [v g] ((block/capability scales :value+grad) (double-array th) {:ys ys})]
+    (is (< (Math/abs (- v (lp th))) 1e-9))
+    (doseq [j [0 1 2]]
+      (let [h 1e-6 fd (/ (- (lp (update th j + h)) (lp (update th j - h))) (* 2 h))]
+        (is (< (Math/abs (- fd (aget ^doubles g j))) 1e-4))))))

@@ -49,48 +49,84 @@
                     (let [[v & grads] (apply @value+grad (args th inputs))]
                       [(double v) (theta-gradient (vec grads) theta)]))})))
 
+(defn- latent-spec
+  "{:sym :shape :support} of a latent form: `b`, `[b support]`, `[b [k]]` or
+  `[b [k] support]` — a scalar, or a vector of k coordinates (k any
+  expression, evaluated when the block is defined)."
+  [form]
+  (if (vector? form)
+    (let [[sym a b] form]
+      (if (vector? a)
+        {:sym sym :shape a :support (or b :real)}
+        {:sym sym :shape [] :support (or a :real)}))
+    {:sym form :shape [] :support :real}))
+
 (defmacro defdensity
   "Define a raster block from its log density, written as the body of a
-  `deftm`: `latents` are the block's scalar latents in θ order (each a
-  symbol, or [symbol support] with support `:positive` or [:interval a b]),
-  `data` the other arguments with their raster types. Defines `name` as the
-  block and `name-lp` as the compiled density; the gradient with respect to
-  the latents comes from raster's reverse mode. The site's inputs are a map
+  `deftm`: `latents` are the block's latents in θ order — a scalar `b`, a
+  constrained scalar `[b support]` (support `:positive` or [:interval a b]),
+  a vector `[beta [k]]` or a constrained vector `[beta [k] support]` (the
+  body sees it as an `(Array double)` of length k) — and `data` the other
+  arguments with their raster types. Defines `name` as the block and
+  `name-lp` as the compiled density; the gradient with respect to the
+  latents comes from raster's reverse mode. The site's inputs are a map
   keyed by the data arguments' names:
 
-    (defdensity logreg [b0 b1 b2]
+    (defdensity logreg [b0 [b [3]]]
       [xs :- (Array double), ys :- (Array double), cnt :- Long]
       (loop … acc))
 
-    (sample (block/block-dist logreg {:xs xs :ys ys :cnt n}) :id :beta :init [0.0 0.0 0.0])
+    (sample (block/block-dist logreg {:xs xs :ys ys :cnt n}) :id :beta :init [0.0 0.0 0.0 0.0])
 
-  With a constrained latent the body sees it in natural coordinates (σ, not
-  log σ): the block declares `:block/coordinates :constrained` and foerster
-  transforms."
+  Inside a loop, read a vector latent at the loop's index (`(ra/aget beta
+  i)`); bind an element read at a fixed index before the loop (`(let [b1
+  (ra/aget beta 0)] (loop …))`) — raster's reverse mode differentiates a
+  loop's reads of an active array only at the loop index.
+
+  θ is the latents flattened in order. With a constrained latent the body
+  sees it in natural coordinates (σ, not log σ): the block declares
+  `:block/coordinates :constrained` and foerster transforms."
   [name latents data & body]
-  (let [specs (mapv #(if (vector? %) % [% :real]) latents)
-        syms (mapv first specs)
+  (let [specs (mapv latent-spec latents)
+        sizes (mapv (fn [{:keys [shape]}] (if (empty? shape) 1 (first shape))) specs)
         lp (symbol (str name "-lp"))
         data-args (vec (partition 3 data))
         th (gensym "theta")
         inputs (gensym "inputs")
+        offsets (gensym "offsets")
         coerce (fn [[sym _ type]]
                  (let [k (keyword sym)]
                    (case type
                      Double `(double (get ~inputs ~k))
                      Long `(long (get ~inputs ~k))
                      `(get ~inputs ~k))))
-        constrained? (some #(not= :real (second %)) specs)]
+        constrained? (some #(not= :real (:support %)) specs)
+        size-syms (mapv (fn [_] (gensym "k")) specs)]
     `(do
-       (raster.core/deftm ~lp ~(vec (concat (mapcat (fn [s] [s :- 'Double]) syms) data)) :- ~'Double
+       (raster.core/deftm ~lp ~(vec (concat (mapcat (fn [{:keys [sym shape]}]
+                                                      [sym :- (if (empty? shape) 'Double '(Array double))])
+                                                    specs)
+                                            data)) :- ~'Double
          ~@body)
        (def ~name
-         (raster-block (cond-> {:block/id ~(keyword name)
-                                :block/latents ~(mapv (fn [[s su]] {:name (keyword s) :shape [] :support su}) specs)
-                                :block/target :complete-conditional}
-                         ~(boolean constrained?) (assoc :block/coordinates :constrained))
-                       (var ~lp)
-                       {:args (fn [~(with-meta th {:tag 'doubles}) ~inputs]
-                                (into ~(mapv (fn [i] `(aget ~th ~i)) (range (count syms)))
-                                      [~@(map coerce data-args)]))
-                        :theta ~(vec (range (count syms)))})))))
+         (let [~@(mapcat (fn [k size] [k size]) size-syms sizes)
+               ~offsets (vec (reductions + 0 ~size-syms))]
+           (raster-block (cond-> {:block/id ~(keyword name)
+                                  :block/latents ~(mapv (fn [{:keys [sym shape support]} k]
+                                                          {:name (keyword sym)
+                                                           :shape (if (empty? shape) [] [k])
+                                                           :support support})
+                                                        specs size-syms)
+                                  :block/target :complete-conditional}
+                           ~(boolean constrained?) (assoc :block/coordinates :constrained))
+                         (var ~lp)
+                         {:args (fn [~(with-meta th {:tag 'doubles}) ~inputs]
+                                  (into ~(vec (map-indexed
+                                               (fn [i {:keys [shape]}]
+                                                 (if (empty? shape)
+                                                   `(aget ~th (nth ~offsets ~i))
+                                                   `(java.util.Arrays/copyOfRange ~th (int (nth ~offsets ~i))
+                                                                                  (int (nth ~offsets ~(inc i))))))
+                                               specs))
+                                        [~@(map coerce data-args)]))
+                          :theta ~(vec (range (count specs)))}))))))
