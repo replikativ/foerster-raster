@@ -115,3 +115,40 @@
     (doseq [j [0 1 2]]
       (let [h 1e-6 fd (/ (- (lp (update th j + h)) (lp (update th j - h))) (* 2 h))]
         (is (< (Math/abs (- fd (aget ^doubles g j))) 1e-4))))))
+
+;; a vector latent read at a data-dependent index (varying intercepts); NUTS
+;; chains call the gradient from several threads at once
+(defdensity intercepts [[a [3]] beta]
+  [group :- (Array long), x :- (Array double), y :- (Array double), cnt :- Long]
+  (loop [i 0 acc 0.0]
+    (if (< i cnt)
+      (let [r (n/- (ra/aget y i) (n/+ (ra/aget a (ra/aget group i)) (n/* beta (ra/aget x i))))]
+        (recur (inc i) (n/- acc (n/* 0.5 (n/* r r)))))
+      acc)))
+
+(def ^:private grouped
+  (let [rng (java.util.Random. 5) cnt 30]
+    {:group (long-array (repeatedly cnt #(.nextInt rng 3)))
+     :x (double-array (repeatedly cnt #(.nextGaussian rng)))
+     :y (double-array (repeatedly cnt #(.nextGaussian rng)))
+     :cnt cnt}))
+
+(defn- intercepts-reference ^double [^doubles th {:keys [^longs group ^doubles x ^doubles y cnt]}]
+  (reduce + (for [i (range cnt)
+                  :let [r (- (aget y i) (aget th (aget group i)) (* (aget th 3) (aget x i)))]]
+              (* -0.5 r r))))
+
+(deftest a-gathered-vector-latent-under-concurrent-calls
+  (let [vg (block/capability intercepts :value+grad)
+        thetas (vec (for [k (range 4)] (double-array [(* 0.1 k) -0.2 0.3 (- 0.5 (* 0.2 k))])))
+        expected (mapv #(vec (second (vg % grouped))) thetas)]
+    (doseq [th thetas
+            j (range 4)]
+      (let [h 1e-6
+            at (fn [d] (let [t (aclone ^doubles th)] (aset t j (+ (aget t j) d)) (intercepts-reference t grouped)))]
+        (is (< (Math/abs (- (/ (- (at h) (at (- h))) (* 2 h))
+                            (aget ^doubles (second (vg th grouped)) j)))
+               1e-5))))
+    (is (= (mapv hash-set expected)
+           (mapv deref (doall (for [k (range 4)]
+                                (future (into #{} (repeatedly 2000 #(vec (second (vg (thetas k) grouped)))))))))))))

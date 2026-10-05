@@ -1,7 +1,7 @@
 {:paths ["src"]
  :deps {org.clojure/clojure {:mvn/version "1.12.1"}
-        org.replikativ/foerster {:mvn/version "0.1.62"}
-        org.replikativ/raster {:mvn/version "0.2.1141"}}
+        org.replikativ/foerster {:mvn/version "0.1.83"}
+        org.replikativ/raster {:mvn/version "0.2.1241"}}
  :aliases
  {;; raster's compiler JVM options
   :jvm {:jvm-opts ["--enable-native-access=ALL-UNNAMED" "--add-modules=jdk.incubator.vector"

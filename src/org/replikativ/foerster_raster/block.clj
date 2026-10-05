@@ -27,21 +27,32 @@
   "θ's gradient from raster's per-argument gradients: the declared slots in
   order, arrays spliced."
   ^doubles [grads slots]
-  (double-array
-   (mapcat (fn [slot]
-             (let [g (nth grads slot)]
-               (cond
-                 (nil? g) (throw (ex-info "Raster returned no gradient for a θ slot"
-                                          {:type ::no-gradient :slot slot}))
-                 (number? g) [(double g)]
-                 :else (seq ^doubles g))))
-           slots)))
+  (let [part (fn [slot]
+               (let [g (nth grads slot)]
+                 (when (nil? g)
+                   (throw (ex-info "Raster returned no gradient for a θ slot"
+                                   {:type ::no-gradient :slot slot})))
+                 g))
+        size (reduce (fn [n slot]
+                       (let [g (part slot)]
+                         (+ n (if (number? g) 1 (alength ^doubles g)))))
+                     0 slots)
+        out (double-array size)]
+    (reduce (fn [offset slot]
+              (let [g (part slot)]
+                (if (number? g)
+                  (do (aset out (int offset) (double g)) (inc offset))
+                  (let [n (alength ^doubles g)]
+                    (System/arraycopy g 0 out (int offset) n)
+                    (+ offset n)))))
+            0 slots)
+    out))
 
 (defn raster-block
   "A foerster block whose log density is the raster function `lp-var`. See
   the namespace for `binding`: {:args (fn [theta inputs]) :theta [slot …]}."
   [description lp-var {:keys [args theta]}]
-  (let [value+grad (delay (rev/value+grad lp-var :wrt theta))]
+  (let [value+grad (delay (rev/value+grad lp-var :wrt theta :compile? true))]
     (block/block
      description
      {:log-density (fn [th inputs] (double (apply @lp-var (args th inputs))))
@@ -79,9 +90,11 @@
     (sample (block/block-dist logreg {:xs xs :ys ys :cnt n}) :id :beta :init [0.0 0.0 0.0 0.0])
 
   Inside a loop, read a vector latent at the loop's index (`(ra/aget beta
-  i)`); bind an element read at a fixed index before the loop (`(let [b1
-  (ra/aget beta 0)] (loop …))`) — raster's reverse mode differentiates a
-  loop's reads of an active array only at the loop index.
+  i)`) or at an index computed from it over the data (`(ra/aget alpha
+  (ra/aget group i))`, a varying intercept); bind an element read at a
+  fixed index before the loop (`(let [b1 (ra/aget beta 0)] (loop …))`).
+
+  The gradient is compiled and safe to call from parallel chains.
 
   θ is the latents flattened in order. With a constrained latent the body
   sees it in natural coordinates (σ, not log σ): the block declares
