@@ -1,0 +1,12 @@
+{:scope "Vector-parameter JVM-AOT adapter; independent regression density, changed data, scalar/array ABI, constrained Jacobians and runtime selection. Not broad backend or MMM posterior qualification."
+ :tested-source-commit "397532d87ec89cd65b71dc5a7ba2c4eb291abc56"
+ :java "25.0.1"
+ :foerster "0.1.83"
+ :raster "0.2.1674"
+ :raster-source-tag-commit "79af206adc68870c748c9ec0e2d826c8f094d06a"
+ :raster-jar-sha256 "bbe8203b3f6a3019a4d85a9799e9275ec982ddac5058dbb79e46777508a5d52e"
+ :tests {:count 16 :assertions 515 :failures 0 :errors 0}
+ :format-check true
+ :resources {:cpu-affinity [0] :heap-mib 512 :metaspace-mib 384 :active-processors 2}
+ :jvm-options ["--enable-native-access=ALL-UNNAMED" "--add-modules=jdk.incubator.vector" "-Xss4m"]
+ :runner "cognitect.test-runner, all test namespaces"}
