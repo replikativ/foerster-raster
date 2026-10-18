@@ -171,3 +171,14 @@ JDK 21 or later (`--add-modules=jdk.incubator.vector`,
 ## License
 
 Copyright © 2026 Christian Weilbach. Apache License 2.0.
+
+
+## JVM-AOT vector gradients
+
+`org.replikativ.foerster-raster.gradient` adapts vector-parameter densities to
+Foerster using Raster's public AD and `compile-aot` APIs. `compile-gradient`
+returns a callable with the density's arguments and a primitive array holding
+value plus derivatives. `aot-block` supplies the usual block capabilities using
+the caller's argument binding. See the [adapter contract](doc/contract.md#vector-parameter-jvm-aot-adapter)
+for typed source descriptors, optional scalar-source specialization, coordinate
+ownership and the qualified Raster baseline. It adds no compiler cache or AD rule.
