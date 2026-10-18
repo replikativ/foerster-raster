@@ -171,5 +171,12 @@ coordinate convention controls Foerster's transformations and Jacobians; the
 adapter adds none itself. The adapter owns no cache and captures no observations.
 Callers own structural reuse and bound generated definitions/worker lifetime.
 
-This API is being qualified on Raster 0.2.1674. A newer Raster qualification or removal
+This API is qualified on Raster 0.2.1674. A newer Raster qualification or removal
 of the explicit scalar source requires separate evidence.
+
+
+`raster-block` also accepts `:compile?` in its binding map. Its default true
+retains automatic compilation through Raster's runtime AD API, including that
+API's documented fallback. False explicitly selects evaluated runtime AD. A
+consumer that labels a backend `:runtime` must request false; use the explicit
+AOT adapter when successful compilation is a requirement rather than a preference.
