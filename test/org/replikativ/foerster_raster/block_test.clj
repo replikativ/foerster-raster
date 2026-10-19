@@ -13,6 +13,7 @@
             [org.replikativ.spindel.effects.await :as aw]
             [org.replikativ.spindel.spin.cps :refer [spin]]
             [raster.core :refer [deftm]]
+            [raster.ad.reverse :as rev]
             [raster.numeric :as n]
             [raster.arrays :as ra]
             [raster.sci.distributions :as dist]
@@ -115,3 +116,19 @@
             sd' (Math/sqrt (/ (reduce + (map #(let [r (- % mu)] (* r r)) xs)) (count xs)))]
         (is (< (Math/abs (- mu mean)) 0.03) (str "mean " mu " vs " mean))
         (is (< (Math/abs (- sd' sd)) 0.03) (str "sd " sd' " vs " sd))))))
+
+(deftest explicit-runtime-selection-and-lazy-compilation
+  (let [calls (atom [])]
+    (with-redefs [rev/value+grad (fn [_ & {:as options}]
+                                   (swap! calls conj options)
+                                   (fn [& _] [1.0 2.0 3.0]))]
+      (doseq [options [{} {:compile? false} {:compile? true}]]
+        (let [b (rb/raster-block description #'gauss-lp
+                                 (merge {:args (fn [theta _] [(aget ^doubles theta 0) (aget ^doubles theta 1)])
+                                         :theta [0 1]} options))]
+          (dotimes [_ 2]
+            (let [[value grad] ((block/capability b :value+grad) (double-array [0.2 0.7]) {})]
+              (is (= [1.0 [2.0 3.0]] [value (vec grad)]))))))
+      (is (= [{:wrt [0 1] :compile? true}
+              {:wrt [0 1] :compile? false}
+              {:wrt [0 1] :compile? true}] @calls)))))

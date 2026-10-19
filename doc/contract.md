@@ -16,8 +16,10 @@ density and derivatives, compilation, caches, buffers and device sessions.
 
 **This bridge** adapts one to the other. It must not add a compiler cache, an
 argument binder or a device-session convention of its own. It consumes
-raster's public compilation/artifact API; until that exists it calls plain
-functions.
+Raster's public compilation API (`raster.compiler.pipeline/compile-aot`)
+and reverse-mode API. The caller supplies the existing argument binding. Typed
+wrappers may adapt the returned value/gradient representation; differentiation,
+optimization and executable generation remain Raster's responsibility.
 
 ## A block
 
@@ -143,3 +145,38 @@ Statistical, as a separate seeded experiment with explicit thresholds:
 4. Residuals, asynchronous completion, device execution.
 5. Implicit solves; estimator-based inference (ADEV, differentiable SMC)
    against enumerable and analytic oracles.
+
+
+## Vector-parameter JVM-AOT adapter
+
+`org.replikativ.foerster-raster.gradient/compile-gradient` accepts a density Var
+whose first argument is a flat `(Array double)` parameter vector, plus a source
+descriptor `{:arguments [theta :- (Array double) ...] :dimension d}`. It returns
+an invoked AOT callable with the same arguments and a `double[]` result containing
+value followed by d natural-coordinate derivatives. Inputs after theta are not
+differentiated. Compiler options pass to Raster without suppressing its guards.
+
+An optional `:scalar-source {:args [...] :body form}` is an equivalent density
+with d Double arguments followed by the same data arguments. The adapter checks
+that signature, chooses scalar AD only within the qualified 18-argument boundary,
+and preserves the vector-parameter caller interface. The caller is responsible
+for mathematical equivalence; independent numerical tests must establish it.
+This explicit source alternative is a temporary representation workaround,
+not automatic compiler scalarization. No application source tree is rewritten.
+
+`aot-block` accepts the description, density Var, the same `{:args binder}`
+convention as `raster-block`, and the compiled callable. It checks the returned
+gradient length and exposes the required block capabilities. The declared
+coordinate convention controls Foerster's transformations and Jacobians; the
+adapter adds none itself. The adapter owns no cache and captures no observations.
+Callers own structural reuse and bound generated definitions/worker lifetime.
+
+This API is qualified on Raster 0.2.1674. A newer Raster qualification or removal
+of the explicit scalar source requires separate evidence.
+
+
+`raster-block` also accepts `:compile?` in its binding map. Its default true
+retains automatic compilation through Raster's runtime AD API, including that
+API's documented fallback. False explicitly selects evaluated runtime AD. A
+consumer that labels a backend `:runtime` must request false; use the explicit
+AOT adapter when successful compilation is a requirement rather than a preference.

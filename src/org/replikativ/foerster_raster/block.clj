@@ -50,9 +50,12 @@
 
 (defn raster-block
   "A foerster block whose log density is the raster function `lp-var`. See
-  the namespace for `binding`: {:args (fn [theta inputs]) :theta [slot …]}."
-  [description lp-var {:keys [args theta]}]
-  (let [value+grad (delay (rev/value+grad lp-var :wrt theta :compile? true))]
+  the namespace for `binding`: {:args (fn [theta inputs]) :theta [slot …]}.
+  :compile? defaults to true (Raster automatic compilation, with its documented
+  fallback); false requests evaluated runtime AD. Required AOT capabilities use
+  org.replikativ.foerster-raster.gradient instead."
+  [description lp-var {:keys [args theta compile?] :or {compile? true}}]
+  (let [value+grad (delay (rev/value+grad lp-var :wrt theta :compile? compile?))]
     (block/block
      description
      {:log-density (fn [th inputs] (double (apply @lp-var (args th inputs))))
