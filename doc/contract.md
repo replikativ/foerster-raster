@@ -165,8 +165,14 @@ This explicit source alternative is a temporary representation workaround,
 not automatic compiler scalarization. No application source tree is rewritten.
 
 `aot-block` accepts the description, density Var, the same `{:args binder}`
-convention as `raster-block`, and the compiled callable. It checks the returned
-gradient length and exposes the required block capabilities. The declared
+convention as `raster-block`, the compiled callable and, optionally, the
+density's value compiled by `compile-value` (compiled at construction when
+omitted). It checks the returned gradient length and exposes the required block
+capabilities. `:log-density` evaluates the compiled value: calling the density
+Var directly goes through Raster's generic dispatch, which cost 18–360 µs per call
+where the compiled value costs under 1 µs on the posteriordb densities measured
+for the LAFI study, and Foerster's NUTS scores the trace with `:log-density` once
+per transition. The declared
 coordinate convention controls Foerster's transformations and Jacobians; the
 adapter adds none itself. The adapter owns no cache and captures no observations.
 Callers own structural reuse and bound generated definitions/worker lifetime.

@@ -79,20 +79,34 @@
             (ns-resolve *ns* name))]
     (apply pipeline/compile-aot v (mapcat identity (dissoc options :parameter-layout)))))
 
+(defn compile-value
+  "Compile the density's value alone with Raster's compile-aot: the callable
+  takes the density's arguments and returns its log density. Calling the
+  density Var directly goes through Raster's generic dispatch, which costs
+  orders of magnitude more per data element."
+  [density]
+  (when-not (var? density)
+    (throw (ex-info "Compiled value requires a Raster density Var" {})))
+  (pipeline/compile-aot density))
+
 (defn aot-block
   "Adapt a compiled [value, gradient...] array to Foerster block capabilities.
   `args` is the caller's existing (theta, inputs)->arguments function. The
   density and gradient operate in the coordinates declared by description;
-  Foerster owns constrained transforms and their Jacobians."
-  [description density {:keys [args]} compiled]
-  (let [dimension (reduce + 0 (map #(reduce * 1 (:shape %)) (:block/latents description)))]
-    (block/block
-     description
-     {:log-density (fn [theta inputs] (double (apply @density (args theta inputs))))
-      :value+grad (fn [theta inputs]
-                    (let [^doubles result (apply compiled (args theta inputs))]
-                      (when-not (= (inc dimension) (alength result))
-                        (throw (ex-info "Compiled gradient dimension does not match block latents"
-                                        {:dimension dimension :result-length (alength result)})))
-                      [(aget result 0)
-                       (java.util.Arrays/copyOfRange result 1 (alength result))]))})))
+  Foerster owns constrained transforms and their Jacobians. `:log-density`
+  uses `value`, the density compiled by `compile-value` (compiled here when
+  not given), never the density Var's generic dispatch."
+  ([description density binding compiled]
+   (aot-block description density binding compiled (compile-value density)))
+  ([description _density {:keys [args]} compiled value]
+   (let [dimension (reduce + 0 (map #(reduce * 1 (:shape %)) (:block/latents description)))]
+     (block/block
+      description
+      {:log-density (fn [theta inputs] (double (apply value (args theta inputs))))
+       :value+grad (fn [theta inputs]
+                     (let [^doubles result (apply compiled (args theta inputs))]
+                       (when-not (= (inc dimension) (alength result))
+                         (throw (ex-info "Compiled gradient dimension does not match block latents"
+                                         {:dimension dimension :result-length (alength result)})))
+                       [(aget result 0)
+                        (java.util.Arrays/copyOfRange result 1 (alength result))]))}))))
